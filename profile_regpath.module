@@ -16,6 +16,9 @@ function profile_regpath_menu() {
   $reg_paths = profile_regpath_regpath_load_all();
 
   if ($reg_paths) {
+    // If we are using the simplified look for login pages, suppress the layout.
+    $simplified = (bool) (config_get('system.core', 'user_login_appearance') == 'simplified');
+
     // Set menu items for each registration path.
     foreach ($reg_paths as $reg_path) {
       $path = $reg_path->path;
@@ -47,6 +50,9 @@ function profile_regpath_menu() {
           'file' => 'registration_form.inc',
           'type' => MENU_LOCAL_TASK,
         );
+        if ($simplified) {
+          $items[$registration_path]['delivery callback'] = 'backdrop_deliver_html_page';
+        }
         $items[$path] = array(
           'title' => 'Log in',
           'page callback' => '_profile_regpath_user_login',
@@ -58,6 +64,9 @@ function profile_regpath_menu() {
           'menu_name' => 'user-menu',
           'type' => MENU_CALLBACK,
         );
+        if ($simplified) {
+          $items[$path]['delivery callback'] = 'backdrop_deliver_html_page';
+        }
         $items[$path . '/login'] = array(
           'title' => 'Log in',
           'page callback' => '_profile_regpath_user_login',
@@ -68,6 +77,9 @@ function profile_regpath_menu() {
           'file' => 'registration_form.inc',
           'type' => MENU_DEFAULT_LOCAL_TASK,
         );
+        if ($simplified) {
+          $items[$path . '/login']['delivery callback'] = 'backdrop_deliver_html_page';
+        }
         $items[$path . '/password'] = array(
           'title' => 'Request new password',
           'type' => MENU_LOCAL_TASK,
@@ -78,6 +90,9 @@ function profile_regpath_menu() {
           'access callback' => 'user_is_anonymous',
           'file' => 'registration_form.inc',
         );
+        if ($simplified) {
+          $items[$path . '/password']['delivery callback'] = 'backdrop_deliver_html_page';
+        }
       }
     }
   }
@@ -98,6 +113,34 @@ function profile_regpath_menu_alter(&$items) {
     $items['user/register']['file path'] = backdrop_get_path('module', 'profile_regpath');
 
     return $items;
+  }
+}
+
+/**
+ * Implements hook_user_login_paths().
+ */
+function profile_regpath_user_login_paths() {
+  $reg_paths = profile_regpath_regpath_load_all();
+
+  if ($reg_paths) {
+    // Set menu items for each registration path.
+    foreach ($reg_paths as $reg_path) {
+      $path = $reg_path->path;
+
+      if (!$path) {
+        continue;
+      }
+
+      $paths = array(
+        "$path" => TRUE,
+        "$path/login" => TRUE,
+        "$path/password" => TRUE,
+      );
+      if (config_get('system.core', 'user_register') != USER_REGISTER_ADMINISTRATORS_ONLY) {
+        $paths["$path/register"] = TRUE;
+      }
+      return $paths;
+    }
   }
 }
 

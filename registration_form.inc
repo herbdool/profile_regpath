@@ -24,7 +24,8 @@ function _profile_regpath_user_login($regpath) {
     $output = menu_execute_active_handler(NULL, FALSE);
   }
   else {
-    $output = backdrop_get_form('user_login');
+    $user_login_form = backdrop_get_form('user_login');
+    $output = user_login_page_wrapper($user_login_form);
   }
   _profile_regpath_set_title($regpath, 'login_title');
   return $output;
@@ -43,7 +44,8 @@ function _profile_regpath_user_login($regpath) {
  */
 function _profile_regpath_user_register($regpath) {
   module_load_include('pages.inc', 'user', 'user');
-  $output = backdrop_get_form('user_register_form');
+  $user_register_form = backdrop_get_form('user_register_form');
+  $output = user_login_page_wrapper($user_register_form);
   _profile_regpath_set_title($regpath, 'register_title');
   return $output;
 }
@@ -61,7 +63,8 @@ function _profile_regpath_user_register($regpath) {
  */
 function _profile_regpath_user_password($regpath) {
   module_load_include('pages.inc', 'user', 'user');
-  $output = backdrop_get_form('user_pass');
+  $user_pass_form = backdrop_get_form('user_pass');
+  $output = user_login_page_wrapper($user_pass_form);
   _profile_regpath_set_title($regpath, 'password_title');
   return $output;
 }
