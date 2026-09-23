@@ -20,6 +20,10 @@ function profile_regpath_menu() {
     foreach ($reg_paths as $reg_path) {
       $path = $reg_path->path;
 
+      if (!$path || !$reg_path->status) {
+        continue;
+      }
+
       // Add profile-specific administrative 'add user' page.
       $items['admin/people/prp-create/' . $path] = array(
         'title' => 'Add user (' . profile_regpath_get_profile_label($reg_path->profile_type) . ' profile)',
