@@ -8,10 +8,6 @@
 /*
  * Attach profile fields to form.
  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
 function profile_regpath_attach_profile_fields(&$form, &$form_state, $form_id, $profile_types = NULL) {
 
   // Check to see if the form is being rebuilt after an AJAX request.
@@ -21,7 +17,7 @@ function profile_regpath_attach_profile_fields(&$form, &$form_state, $form_id, $
     $url = backdrop_parse_url($form['#action']);
     $path = explode('/', str_replace('/register', '', $url['path']));
     $path_key = end($path);
-    $profile_types = profile_regpath_regpath_load_multiple(array('path' => $path_key));
+    $profile_types = _profile_regpath_load_regpath($path_key);
   }
 
   if ($profile_types != NULL) {

@@ -13,7 +13,7 @@
 function profile_regpath_menu() {
   $items = array();
 
-  $reg_paths = profile_regpath_regpath_load_all();
+  $reg_paths = _profile_regpath_load_regpath();
 
   if ($reg_paths) {
     // Set menu items for each registration path.
@@ -89,7 +89,7 @@ function profile_regpath_menu() {
  */
 function profile_regpath_menu_alter(&$items) {
   // Check to see if the default 'user' path is being used with Profile.
-  if ($user_paths = profile_regpath_regpath_load_multiple(array('path' => 'user'))) {
+  if ($user_paths = _profile_regpath_load_regpath('user')) {
     $regpath = array_shift($user_paths);
     // Build form at user/register using _profile_regpath_user_register().
     $items['user/register']['page callback'] = '_profile_regpath_user_register';
@@ -124,14 +124,6 @@ function profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $for
 }
 
 /**
- * Implements hook_profile_type_delete().
- */
-function profile_regpath_profile_type_delete($type) {
-  // Delete table entries for deleted profile profile type.
-  db_delete('profile_regpath')->condition('profile_id', $type->type)->execute();
-}
-
-/**
  * Implements hook_form_alter().
  */
 function profile_regpath_form_alter(&$form, &$form_state, $form_id) {
@@ -140,10 +132,10 @@ function profile_regpath_form_alter(&$form, &$form_state, $form_id) {
 
     // Logintoboggan might display user_register_form on 403 pages.
     if (module_exists('logintoboggan') && config_get('system.performance', 'site_403') == 'toboggan/denied' && strpos(backdrop_get_http_header('Status'), '403') === 0) {
-      $profile_types = profile_regpath_get_profiles('user');
+      $profile_types = _profile_regpath_load_regpath('user');
     }
     else {
-      // Get profile profile types from current path.
+      // Get profile types from current path.
       $url = backdrop_parse_url($form['#action']);
       $path = ltrim($url['path'], '/');
 
@@ -162,8 +154,8 @@ function profile_regpath_form_alter(&$form, &$form_state, $form_id) {
         $path_key = reset($path_parts);
       }
 
-      // Load profiles for this path key and attach associated fields.
-      $profile_types = profile_regpath_regpath_load_multiple(array('path' => $path_key, 'status' => 1));
+      // Load profiles registration path data for this path key and attach associated fields.
+      $profile_types = _profile_regpath_load_regpath($path_key, 1);
     }
     profile_regpath_attach_profile_fields($form, $form_state, $form_id, $profile_types);
   }
@@ -191,250 +183,68 @@ function profile_regpath_user_insert($account) {
  */
 function profile_regpath_get_profile_id($profile_type) {
   $data = config_get('profile.type.' . $profile_type);
-  // $profile_id = db_query("SELECT id FROM {profile_type} WHERE type = :profile_type", array(':profile_type' => $profile_type))->fetchField();
   return $data['type'];
-}
-
-/**
- * Returns object containing all prp data.
- *
- * @param string $path
- *   (optional) path value for WHERE condition. Defaults to NULL.
- *
- * @param string $groupby
- *   (optional) field to groupby. Defaults to NULL.
- *
- * @return object
- *   An object containing all matching profile registration path enabled
- *   profile types.
- */
-function profile_regpath_get_profiles($path = NULL, $groupby = NULL, $pid = NULL) {
-  // Get data object of all registration paths.
-  $query = db_select('profile_regpath', 'pr');
-  //$query->join('profile_type', 'pt', 'pr.profile_id = pt.id');
-  $query->fields('pr', array('path', 'roles', 'misc', 'status'));
-  //$query->fields('pt', array('id', 'label', 'type'));
-  if ($path) {
-    $query->condition('path', $path);
-  }
-  if ($groupby) {
-    $query->groupBy($groupby);
-  }
-  if ($pid) {
-    $query->condition('profile_id', $pid);
-  }
-  $query->condition('pr.status', 1);
-  $query->orderBy('pr.weight', 'ASC');
-  $result = $query->execute();
-  $profile_types = $result->fetchAll();
-
-  return $profile_types;
 }
 
 /**
  * Provides label by profile machine_name.
  *
  * @param string $profile_type
- *   Machine-name of profile profile type.
+ *   Machine-name of profile type.
  *
  * @return string
  *   The label for indicated profile type.
  */
 function profile_regpath_get_profile_label($profile_type) {
-  // $profile_label = db_query("SELECT label FROM {profile_type} WHERE type = :profile_type", array(':profile_type' => $profile_type))->fetchField();
-  $config = config_get('profile.type.' . $profile_type);
-  return $config['label'];
+  $config = config('profile.type.' . $profile_type);
+  return $config->get('label');
 }
 
 /**
- * Implements 'load' callback for regpath exportables.
+ * Registration path data.
+ *
+ * @param string $path
+ *    (optional) path value. Defaults to NULL.
+ * @param string $status
+ *    (optional) status of path. Defaults to NULL.
+ *
+ * @return array
+ *    An array containing all matching profile registration path enabled
+ *    profile types.
  */
-function profile_regpath_regpath_load($profile_type) {
-  $result = profile_regpath_load_object('profile_regpath', 'names', array($profile_type));
-  if (isset($result[$profile_type])) {
-    return $result[$profile_type];
+function _profile_regpath_load_regpath($path = NULL, $status = NULL) {
+  $profile_types_config = config_get_names_with_prefix('profile.type.');
+
+  $profile_types = array();
+  foreach ($profile_types_config as $type) {
+    $config = config('profile.type.' . $type);
+    $config_path = $config->get('regpath.path');
+    $is_path = $path == NULL || $path == $config_path;
+    $config_status = $config->get('regpath.status');
+    $is_status = $status == NULL || $status == $config_status;
+
+    $data = $config->get('regpath');
+    if ($is_path && $is_status && $data) {
+      $data += array(
+        'profile_type' => $type,
+      );
+      $profile_types[$type] = (object) $data;
+    }
   }
-}
 
-/**
- * Implements 'load multiple' callback for regpath exportables.
- */
-function profile_regpath_regpath_load_multiple($conditions) {
-  $results = profile_regpath_load_object('profile_regpath', 'conditions', $conditions);
-  return array_filter($results);
-}
-
-/**
- * Implements 'load all' callback for regpath exportables.
- */
-function profile_regpath_regpath_load_all() {
-  $results = profile_regpath_load_object('profile_regpath');
-  return array_filter($results);
+  backdrop_sort($profile_types, array('weight'));
+  return $profile_types;
 }
 
 /**
  * Save a single regpath.
- */
-function profile_regpath_regpath_save(&$regpath) {
-  $exist = profile_regpath_regpath_load($regpath['profile_type']);
-  $update = $exist ? 'profile_type' : array();
-
-  // Check if we have profile id when creating new regpath
-  if (!$update) {
-    // We are creating new profile type
-    if (!isset($regpath['profile_id'])) {
-      // Unvalid profile id
-      // New profile type need profile id, we load it from database
-      $profile_type = profile_type_load($regpath['profile_type']);
-
-      if (empty($profile_type)) {
-        // No profile types was found
-        return FALSE;
-      }
-      else {
-        $regpath['profile_id'] = $profile_type->type;
-      }
-    }
-  }
-
-  return db_merge('profile_regpath')->key(array('profile_type' => $regpath['profile_type']))->fields($regpath)->execute();
-}
-
-/**
- * Delete a regpath.
- */
-function profile_regpath_regpath_delete($regpath) {
-  $profile_type = is_object($regpath) ? $regpath->profile_type : $regpath;
-  db_query('DELETE FROM {profile_regpath} WHERE profile_type=:profile_type', array(':profile_type' => $profile_type));
-
-  backdrop_static_reset('profile_regpath_load_object');
-}
-
-/**
- * Implements hook_features_revert().
- * Rebuild menu after all profile_regpath components is reverted.
  *
- * @param type $module_namestring $module_name
- *   The name of the feature module whose components should be reverted.
+ * @param array $regpath
  */
-function profile_regpath_features_revert($module_name) {
-  return profile_regpath_features_rebuild($module_name);
-}
-
-/**
- * Implements hook_features_rebuild().
- * Rebuild menu after all profile_regpath components is re-built.
- *
- * @param string $module_name
- *   The name of the feature module whose components should be rebuilt.
- */
-function profile_regpath_features_rebuild($module_name) {
-  $regpaths = module_invoke($module_name, 'default_profile_regpath');
-  if (!empty($regpaths)) {
-    foreach ($regpaths as $regpath) {
-      // Disable non-schema properties
-      unset($regpath->disabled);
-      unset($regpath->api_version);
-      $regpath = get_object_vars($regpath);
-      $profile = profile_type_load($regpath['profile_type']);
-      $regpath['profile_id'] = $profile->id;
-      profile_regpath_regpath_save($regpath);
-    }
-  }
-  menu_rebuild();
-}
-
-function profile_regpath_load_object($table, $type = 'all', $args = array()) {
-  $cache = &backdrop_static(__FUNCTION__);
-  $cached_database = &backdrop_static('profile_regpath_load_object_all');
-
-  $schema = backdrop_get_schema($table);
-
-  $export = $schema['export'];
-
-  if (!isset($cache[$table])) {
-    $cache[$table] = array();
-  }
-
-  // If fetching all and cached all, we've done so and we are finished.
-  if ($type == 'all' && !empty($cached_database[$table])) {
-    return $cache[$table];
-  }
-
-  $return = array();
-
-  // Don't load anything we've already cached.
-  if ($type == 'names' && !empty($args)) {
-    foreach ($args as $id => $name) {
-      if (isset($cache[$table][$name])) {
-        $return[$name] = $cache[$table][$name];
-        unset($args[$id]);
-      }
-    }
-
-    // If nothing left to load, return the result.
-    if (empty($args)) {
-      return $return;
-    }
-  }
-
-  // Build the query
-  $query = db_select($table, 't__0')->fields('t__0');
-  $alias_count = 1;
-  $conditions = array();
-  $query_args = array();
-
-  // If they passed in names, add them to the query.
-  if ($type == 'names') {
-    $query->condition($export['key'], $args, 'IN');
-  }
-  else if ($type == 'conditions') {
-    foreach ($args as $key => $value) {
-      if (isset($schema['fields'][$key])) {
-        $query->condition($key, $value);
-      }
-    }
-  }
-
-  $result = $query->execute();
-
-  // Unpack the results of the query onto objects and cache them.
-  foreach ($result as $data) {
-    $object = new stdClass;
-
-    // Go through our schema and build correlations.
-    foreach ($schema['fields'] as $field => $info) {
-      if (isset($data->$field)) {
-        $object->$field = empty($info['serialize']) ? $data->$field : unserialize($data->$field);
-      }
-      else {
-        $object->$field = NULL;
-      }
-    }
-
-    $object->table = $table;
-    // $object->{$export['export type string']} = t('Normal');
-
-    $cache[$table][$object->{$export['key']}] = $object;
-    if ($type == 'conditions') {
-      $return[$object->{$export['key']}] = $object;
-    }
-  }
-
-  // If fetching all, we've done so and we are finished.
-  if ($type == 'all') {
-    $cached_database[$table] = TRUE;
-    return $cache[$table];
-  }
-
-  if ($type == 'names') {
-    foreach ($args as $name) {
-      if (isset($cache[$table][$name])) {
-        $return[$name] = $cache[$table][$name];
-      }
-    }
-  }
-
-  // For conditions,
-  return $return;
+function profile_regpath_regpath_save($regpath) {
+  $config = config('profile.type.' . $regpath['profile_type']);
+  unset($regpath['profile_type']);
+  unset($regpath['profile_id']);
+  $config->set('regpath', $regpath);
+  $config->save();
 }

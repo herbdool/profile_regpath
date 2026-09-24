@@ -13,11 +13,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
     // Grab existing values.
     global $base_url;
     $profile_type = $form['type']['#default_value'];
-    $settings     = profile_regpath_regpath_load($profile_type);
-    // Unserialize array of miscellaneous display options.
-    if (is_object($settings)) {
-      $misc = unserialize($settings->misc);
-    }
+    $config = config('profile.type.' . $profile_type);
 
     // Change description of Profile's registration checkbox.
     $form['registration']['#title'] = t('Show on all user account registration forms.');
@@ -31,7 +27,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
     $form['regpath']['status'] = array(
       '#type' => 'checkbox',
       '#title' => t('Enable unique registration path'),
-      '#default_value' => is_object($settings) && $settings->status ? $settings->status : 0,
+      '#default_value' => $config->get('regpath.status') ?? 0,
       '#description' => t("If checked, a unique registration page utilizing this profile type's fields will be available at the specified URL."),
     );
     $form['regpath']['settings'] = array(
@@ -50,7 +46,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
       '#title' => t('URL path'),
       '#field_prefix' => config_get('system.performance', 'clean_url') ? $base_url . '/' : $base_url . '?q=',
       '#field_suffix' => '/register',
-      '#default_value' => is_object($settings) && $settings->path ? $settings->path : '',
+      '#default_value' => $config->get('regpath.path') ?? '',
       '#description' => t('Please enter the base URL for this registration path.
         <ul>
           <li>Menu router items for [path], [path]/register, [path]/login, and [path]/password will be generated.</li>
@@ -65,7 +61,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
     $form['regpath']['settings']['custom_titles'] = array(
       '#type' => 'checkbox',
       '#title' => t('Set custom page titles for the login, register, and forgot password pages.'),
-      '#default_value' => is_object($settings) && isset($misc['custom_titles']) ? (int) $misc['custom_titles'] : 0,
+      '#default_value' => $config->get('regpath.misc.custom_titles') ?? 0,
       '#description' => t('Enabling this option will permit you to override the default title of "User Account" on the login, register, and forgot password pages.'),
     );
     $form['regpath']['settings']['custom_titles_settings'] = array(
@@ -80,19 +76,19 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
     $form['regpath']['settings']['custom_titles_settings']['login_title'] = array(
       '#type' => 'textfield',
       '#title' => t('Login page title'),
-      '#default_value' => is_object($settings) && isset($misc['login_title']) ? $misc['login_title'] : 'User Account',
+      '#default_value' => $config->get('regpath.misc.login_title') ?? 'User Account',
       '#description' => t('Enter the title you want to display in the login page. The default title is <i>User Account</i>.'),
     );
     $form['regpath']['settings']['custom_titles_settings']['register_title'] = array(
       '#type' => 'textfield',
       '#title' => t('Register page title'),
-      '#default_value' => is_object($settings) && isset($misc['register_title']) ? $misc['register_title'] : 'User Account',
+      '#default_value' => $config->get('regpath.misc.register_title') ?? 'User Account',
       '#description' => t('Enter the title you want to display in the registration page. The default title is <i>User Account</i>.'),
     );
     $form['regpath']['settings']['custom_titles_settings']['password_title'] = array(
       '#type' => 'textfield',
       '#title' => t('Password page title'),
-      '#default_value' => is_object($settings) && isset($misc['password_title']) ? $misc['password_title'] : 'User Account',
+      '#default_value' => $config->get('regpath.misc.password_title') ?? 'User Account',
       '#description' => t('Enter the title you want to display in the request new password page. The default title is <i>User Account</i>.'),
     );
 
@@ -100,13 +96,13 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
     $form['regpath']['settings']['confirmation_display'] = array(
       '#type' => 'checkbox',
       '#title' => t('Display a confirmation message after registration.'),
-      '#default_value' => is_object($settings) && isset($misc['confirmation_display']) ? (int) $misc['confirmation_display'] : 0,
+      '#default_value' => $config->get('regpath.misc.confirmation_display') ?? 0,
       '#description' => t('Enabling this option display a custom confirmation message to the user after a successful registration.'),
     );
     $form['regpath']['settings']['confirmation_message'] = array(
       '#type' => 'textarea',
       '#title' => t('Confirmation Message'),
-      '#default_value' => is_object($settings) && isset($misc['confirmation_message']) ? $misc['confirmation_message'] : '',
+      '#default_value' => $config->get('regpath.misc.confirmation_message') ?? '',
       '#description' => t('Enter the confirmation message that you would like to display.'),
       '#states' => array(
         'invisible' => array(
@@ -119,7 +115,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
       '#type' => 'checkbox',
       '#title' => 'Wrap profile fields in a fieldset',
       '#description' => t('If checked, all profile fields for this profile type will be wrapped in a fieldset titled @label on the user registration form.', array('@label' => '')),
-      '#default_value' => is_object($settings) && isset($misc['fieldset_wrap']) ? (int) $misc['fieldset_wrap'] : 0,
+      '#default_value' => $config->get('regpath.misc.fieldset_wrap') ?? 0,
     );
 
     // Add form fields for assigning roles during registration.
@@ -133,7 +129,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
 
     // Prepare default value for roles checkbox.
     $default_roles = array();
-    $roles_settings = is_object($settings) && $settings->roles?unserialize($settings->roles) : array();
+    $roles_settings = $config->get('regpath.roles') ?? array();
     $enabled_rids = array_keys($roles_settings);
     foreach ($roles as $rid => $role_name) {
       if (in_array($rid, $enabled_rids)) {
@@ -157,7 +153,7 @@ function _profile_regpath_form_profile_type_form_alter(&$form, &$form_state, $fo
       '#title' => t('Weight'),
       '#description' => t("If multiple sets of profile fields are attached to a single registration path, they will be sorted in ascending order by weight. This will affect both the order of profile fields and the title settings."),
       '#options' => backdrop_map_assoc(range(-10, 10, 1)),
-      '#default_value' => is_object($settings) && $settings->weight ? (int) $settings->weight : 0,
+      '#default_value' => $config->get('regpath.weight') ?? 0,
     );
 
     // Add new validate and submit handlers.
@@ -274,13 +270,13 @@ function profile_regpath_save_settings($form, &$form_state) {
   $roles = array();
   foreach ($form_state['values']['roles_assign'] as $role_id => $enable) {
     if ($enable) {
-      $roles[$role_id] = $role_id; // db_query("SELECT r.name FROM {role} AS r WHERE r.rid = :rid", array(':rid' => $role_id))->fetchField();
+      $roles[$role_id] = $role_id;
     }
   }
-  $fields['roles'] = serialize($roles);
+  $fields['roles'] = $roles;
 
   // Create array of miscellaneous display options.
-  $fields['misc'] = serialize(array(
+  $fields['misc'] = array(
     'fieldset_wrap' => $form_state['values']['fieldset_wrap'],
     'custom_titles' => $form_state['values']['custom_titles'],
     'login_title' => $form_state['values']['login_title'],
@@ -288,7 +284,7 @@ function profile_regpath_save_settings($form, &$form_state) {
     'password_title' => $form_state['values']['password_title'],
     'confirmation_display' => $form_state['values']['confirmation_display'],
     'confirmation_message' => $form_state['values']['confirmation_message'],
-  ));
+  );
 
   // Add settings to database.
   $fields['profile_type'] = $profile_type;

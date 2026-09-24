@@ -10,9 +10,8 @@
  *
  * Path: [path-setting]/login
  *
- * @param object $profiles
- *   Object containing single row from profile_regpath_get_profiles() database
- *   result.
+ * @param object $regpath
+ *   Profile type registration path data.
  *
  * @see profile_regpath_menu()
  */
@@ -35,9 +34,8 @@ function _profile_regpath_user_login($regpath) {
  *
  * Path: [path-setting]/register
  *
- * @param object object $profiles
- *   Object containing single row from profile_regpath_get_profiles() database
- *   result.
+ * @param object object $regpath
+ *   Profile type registration path data.
  *
  * @see profile_regpath_menu()
  */
@@ -53,9 +51,8 @@ function _profile_regpath_user_register($regpath) {
  *
  * Path: [path-setting]/password
  *
- * @param object $profiles
- *   Object containing single row from profile_regpath_get_profiles() database
- *   result.
+ * @param object $regpath
+ *   Profile type registration path data.
  *
  * @see profile_regpath_menu()
  */
@@ -69,9 +66,8 @@ function _profile_regpath_user_password($regpath) {
 /**
  * Sets page title for registration, login, and forgot password pages.
  *
- * @param object $profiles
- *   Object containing single row from profile_regpath_get_profiles() database
- *   result.
+ * @param object $regpath
+ *   Profile type registration path data.
  *
  * @param string $key
  *   Array key for 'misc' array. This will determine the title settings.

@@ -5,78 +5,6 @@
  */
 
 /**
- * Implements hook_schema().
- */
-function profile_regpath_schema() {
-  $schema['profile_regpath'] = array(
-    'description' => 'Stores registration path information for profile profiles',
-    'export' => array(
-      'key' => 'profile_type',
-      'key name' => 'Profile Type',
-      'primary key' => 'profile_type',
-      'identifier' => 'regpath',
-      'api' => array(
-        'owner' => 'profile_regpath',
-        'api' => 'profile_regpath',
-        'minimum_version' => '1',
-        'current_version' => '1',
-      ),
-    ),
-    'fields' => array(
-      'profile_type' => array(
-        'description' => 'The {profile_type}.type of this profile.',
-        'type' => 'varchar',
-        'length' => '255',
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'profile_id' => array(
-        'description' => 'Profile profile ID',
-        'type' => 'varchar',
-        'length' => '255',
-        'not null' => TRUE,
-      ),
-      'path' => array(
-        'description' => 'Profile-specific registration form path',
-        'type' => 'varchar',
-        'length' => '2048',
-        'not null' => FALSE,
-      ),
-      'roles' => array(
-        'description' => 'Array of role ids',
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => FALSE,
-      ),
-      'status' => array(
-        'description' => 'Enabled or disabled',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'weight' => array(
-        'description' => 'Weight of profile type',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'misc' => array(
-        'description' => 'Miscellaneous display settings',
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => FALSE,
-      ),
-    ),
-    'primary key' => array('profile_type'),
-    'indexes' => array(
-      'type' => array(array('path', 255)),
-    ),
-  );
-
-  return $schema;
-}
-
-/**
  * Implements hook_enable().
  */
 function profile_regpath_enable() {
@@ -136,4 +64,31 @@ function profile_regpath_update_1002() {
   db_delete('system')
     ->condition('name', 'profile2_regpath')
     ->execute();
+}
+
+/**
+ * Convert user roles to configuration files.
+ */
+function profile_regpath_update_1003() {
+  if (!db_table_exists('profile_regpath')) {
+    return;
+  }
+
+  $regpaths = db_query("SELECT * FROM {profile_regpath}");
+  foreach ($regpaths as $row) {
+    $regpath_data = array(
+      'path' => $row->path,
+      'roles' => unserialize($row->roles),
+      'status' => $row->status,
+      'weight' => $row->weight,
+      'misc' => unserialize($row->misc),
+    );
+
+    // Save the new user role.
+    $config = config('profile.type.' . $row->profile_type);
+    $config->set('regpath', $regpath_data);
+    $config->save();
+  }
+
+  db_drop_table('profile_regpath');
 }
